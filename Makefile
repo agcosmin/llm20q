@@ -10,5 +10,5 @@ format:
 	lintrunner format
 
 test:
-	pytest ./tests
+	pytest --verbose ./tests
 
