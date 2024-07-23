@@ -281,7 +281,8 @@ class LLMAgent:
         if observation.questions:
             question = self._generate(
                 self._prompt_builder.ask(
-                    observation.questions, observation.answers
+                    observation.questions + observation.guesses,
+                    observation.answers + ["no"] * len(observation.guesses),
                 )
             )
         else:
@@ -293,12 +294,17 @@ class LLMAgent:
     def guess(self, observation) -> str:
         question = self._generate(
             self._prompt_builder.guess(
-                observation.questions, observation.answers
+                observation.questions + observation.guesses,
+                observation.answers + ["no"] * len(observation.guesses),
             )
         )
         guess_suffix = self._prompt_builder.get_guess_prompt_suffix()
-        guessed_word = question[question.rfind(guess_suffix) + len(guess_suffix) :]
-        question = self._prompt_builder.clean_question("Is it" + guessed_word + "?")
+        guessed_word = question[
+            question.rfind(guess_suffix) + len(guess_suffix) :
+        ]
+        question = self._prompt_builder.clean_question(
+            "Is it" + guessed_word + "?"
+        )
         return question
 
     def __call__(self, observation, *args) -> str:

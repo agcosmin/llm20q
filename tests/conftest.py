@@ -1,8 +1,6 @@
 """Test fixtures"""
-import typing
 
 import pytest
-import transformers
 
 import llm20q.agents
 
@@ -19,7 +17,7 @@ def chat_templates() -> tuple[str, str, str, list[str], list[str], list[str]]:
 
 
 @pytest.fixture(scope="session")
-def prompt_builder(chat_templates) -> llm20q.agents.PromptBuilder:
+def prompt_builder(chat_templates) -> llm20q.agents.PromptBuilder:  # pylint: disable=redefined-outer-name
     user, model, model_start, ask_shots, guess_shots, answer_shots = (
         chat_templates
     )
@@ -29,5 +27,5 @@ def prompt_builder(chat_templates) -> llm20q.agents.PromptBuilder:
         model_chat_start=model_start,
         ask_fewshots=ask_shots,
         answer_fewshots=answer_shots,
+        guess_fewshots=guess_shots,
     )
-
