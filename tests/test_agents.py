@@ -9,11 +9,11 @@ import llm20q.agents
 def test_construct_prompt_bilder_without_prompt_pattern_raises_ex(
     chat_templates,
 ):
-    user, model, model_start, *_ = chat_templates
+    user, model, model_start, *args = chat_templates
     with pytest.raises(ValueError):
-        llm20q.agents.PromptBuilder("user_prompt", model, model_start)
+        llm20q.agents.PromptBuilder("user_prompt", model, model_start, *args)
     with pytest.raises(ValueError):
-        llm20q.agents.PromptBuilder(user, "model_prompt", model_start)
+        llm20q.agents.PromptBuilder(user, "model_prompt", model_start, *args)
 
 
 def test_build_description_with_no_questions_and_answers_results_in_empty_str(
@@ -145,6 +145,7 @@ def test_generate_ask_prompt_with_fewshots():
         user_chat_template="<bos>user:{prompt}<eos>",
         model_chat_template="<bos>model:{prompt}<eos>",
         model_chat_start="<bos>model:",
+        ask_prompt_suffix="Ask a question about something that",
         ask_fewshots=[
             "You must guess someting by asking questions about it."
             + "Ask question about something that is a place, is in Europe",
@@ -173,6 +174,7 @@ def test_generate_ask_prompt_without_fewshots():
         user_chat_template="<bos>user:{prompt}<eos>",
         model_chat_template="<bos>model:{prompt}<eos>",
         model_chat_start="<bos>model:",
+        ask_prompt_suffix="Ask a question about something that",
     )
     questions = ["Is it an animal?", "Does it meow?"]
     answers = ["yes", "no"]
@@ -189,6 +191,8 @@ def test_generate_guess_prompt_with_fewshots():
         user_chat_template="<bos>user:{prompt}<eos>",
         model_chat_template="<bos>model:{prompt}<eos>",
         model_chat_start="<bos>model:",
+        guess_prompt_prefix="Name something that",
+        guess_prompt_suffix="The answer is",
         guess_fewshots=[
             "You must name someting based on the following description."
             + "Name something that is a place, is in Europe",
@@ -209,7 +213,7 @@ def test_generate_guess_prompt_with_fewshots():
         + "<bos>model:The answer is"
     )
     prompt = builder.guess(questions, answers)
-    assert re.fullmatch(expected_prompt, prompt)
+    assert prompt == expected_prompt
 
 
 def test_generate_guess_prompt_without_fewshots():
@@ -217,6 +221,8 @@ def test_generate_guess_prompt_without_fewshots():
         user_chat_template="<bos>user:{prompt}<eos>",
         model_chat_template="<bos>model:{prompt}<eos>",
         model_chat_start="<bos>model:",
+        guess_prompt_prefix="Name something that",
+        guess_prompt_suffix="The answer is",
     )
     questions = ["Is it an animal?", "Does it meow?"]
     answers = ["yes", "no"]
@@ -225,25 +231,7 @@ def test_generate_guess_prompt_without_fewshots():
         + "<bos>model:The answer is"
     )
     prompt = builder.guess(questions, answers)
-    assert re.fullmatch(expected_prompt, prompt)
-
-
-def test_generate_guess_prompt_with_custom_prefix_and_suffix():
-    builder = llm20q.agents.PromptBuilder(
-        user_chat_template="<bos>user:{prompt}<eos>",
-        model_chat_template="<bos>model:{prompt}<eos>",
-        model_chat_start="<bos>model:",
-        guess_prompt_prefix="What",
-        guess_prompt_suffix="The answer to the question is",
-    )
-    questions = ["Is it an animal?", "Does it meow?"]
-    answers = ["yes", "no"]
-    expected_prompt = (
-        "<bos>user:What is an animal, does not meow<eos>"
-        + "<bos>model:The answer to the question is"
-    )
-    prompt = builder.guess(questions, answers)
-    assert re.fullmatch(expected_prompt, prompt)
+    assert prompt == expected_prompt
 
 
 @pytest.mark.parametrize(

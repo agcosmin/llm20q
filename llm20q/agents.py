@@ -51,8 +51,9 @@ class PromptBuilder:
         user_chat_template: str,
         model_chat_template: str,
         model_chat_start: str,
-        guess_prompt_prefix: typing.Optional[str] = "Name something that",
-        guess_prompt_suffix: typing.Optional[str] = "The answer is",
+        guess_prompt_prefix: str = "",
+        guess_prompt_suffix: str = "",
+        ask_prompt_suffix: str = "",
         ask_fewshots: typing.Optional[list[str]] = None,
         guess_fewshots: typing.Optional[list[str]] = None,
         answer_fewshots: typing.Optional[list[str]] = None,
@@ -82,6 +83,7 @@ class PromptBuilder:
         )
         self._guess_prompt_prefix = guess_prompt_prefix
         self._guess_prompt_suffix = guess_prompt_suffix
+        self._ask_prompt_suffix = ask_prompt_suffix
 
         if not questions:
             questions = [
@@ -180,7 +182,8 @@ class PromptBuilder:
         random_seed: typing.Optional[int] = None,
     ) -> str:
         description = (
-            "Ask a question about something that "
+            self._ask_prompt_suffix
+            + " "
             + self.build_description(questions, answers)
         )
         random.seed(random_seed)
