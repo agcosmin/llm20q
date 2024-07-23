@@ -342,6 +342,27 @@ def load_gemma_model_and_tokenizer(
     return model, tokenizer
 
 
+def build_gemma_prompt_builder(
+    guess_prompt_prefix: str,
+    guess_prompt_suffix: str,
+    ask_prompt_suffix: str,
+    ask_fewshots: typing.Optional[list[str]] = None,
+    guess_fewshots: typing.Optional[list[str]] = None,
+    answer_fewshots: typing.Optional[list[str]] = None,
+) -> PromptBuilder:
+    return PromptBuilder(
+        user_chat_template="<start_of_turn>user\n{prompt}<end_of_turn>\n",
+        model_chat_template="<start_of_turn>model\n{prompt}<end_of_turn>\n",
+        model_chat_start="<start_of_turn>model\n",
+        guess_prompt_prefix=guess_prompt_prefix,
+        guess_prompt_suffix=guess_prompt_suffix,
+        ask_prompt_suffix=ask_prompt_suffix,
+        ask_fewshots=ask_fewshots,
+        guess_fewshots=guess_fewshots,
+        answer_fewshots=answer_fewshots,
+    )
+
+
 def build_gemma_agent(
     model: transformers.AutoModelForCausalLM,
     tokenizer: transformers.AutoTokenizer,
@@ -369,6 +390,15 @@ def agent_fn(observation, *args, **kwargs):  # pylint: disable=unused-argument
             device=device,
             quantized=quantized,
         )
-        session_agent = build_gemma_agent(session_model, session_tokenizer)
+        session_agent = LLMAgent(
+            model=session_model,
+            tokenizer=session_tokenizer,
+            prompt_builder=build_gemma_prompt_builder(
+                "Guess what I am thinking about. I am thinking about something that",  # pylint: disable=line-too-long
+                "The answer is",
+                "Ask a question about my secret that",
+            ),
+        )
+
     response = session_agent(observation)
     return response
