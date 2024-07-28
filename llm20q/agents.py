@@ -231,10 +231,12 @@ class LLMAgent:
         model: typing.Any,
         tokenizer: typing.Any,
         prompt_builder: PromptBuilder,
+        generation_config: transformers.GenerationConfig = transformers.GenerationConfig()
     ) -> None:
         self._model = model
         self._tokenizer = tokenizer
         self._prompt_builder = prompt_builder
+        self._generation_config = generation_config
 
         self._answer_tokens = sorted(
             [
@@ -266,7 +268,8 @@ class LLMAgent:
         )
         num_prompt_tokens = tokenized_prompt["input_ids"].shape[1]
         generated_tokens = self._model.generate(
-            **tokenized_prompt, max_new_tokens=max_new_tokens
+            **tokenized_prompt, max_new_tokens=max_new_tokens,
+            generation_config=self._generation_config
         )[0]
 
         question = self._tokenizer.decode(
