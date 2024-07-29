@@ -95,7 +95,6 @@ class PromptBuilder:
         self._questions = sorted(
             questions, key=lambda q: q.prefix, reverse=True
         )
-        self._q_prefixes = [q.prefix for q in self._questions]
 
         if it_words:
             self._it_words = sorted(it_words, reverse=True)
@@ -107,9 +106,6 @@ class PromptBuilder:
                 "hidden word",
                 "keyword",
             ]
-        self._qtype_pattern = re.compile(
-            "|".join([q.prefix for q in self._questions])
-        )
 
     @staticmethod
     def clean_question(question: str) -> str:
@@ -145,10 +141,13 @@ class PromptBuilder:
             if answer not in ["yes", "no"]:
                 continue
             question = self.clean_question(question)
-            prefix = self._qtype_pattern.match(question)
-            if not prefix:
-                raise ValueError("Invalid question prefix")
-            q_index = self._q_prefixes.index(prefix.group(0))
+            q_index = None
+            for i, q in enumerate(self._questions):
+                if question[0 : len(q.prefix)] == q.prefix:
+                    q_index = i
+            if q_index is None:
+                raise ValueError(f"Invalid question prefix: {question}")
+
             if answer.lower() == "yes":
                 verb = self._questions[q_index].afirmative
             else:
