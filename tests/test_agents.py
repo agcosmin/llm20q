@@ -1,6 +1,5 @@
 """llm20q.agents tests"""
 
-import re
 import pytest
 
 import llm20q.agents
@@ -171,50 +170,6 @@ def test_interleave_dialog_with_custom_separator():
         "user:User line\n@@@" + "model:Model line\n@@@" + "user:User line\n"
     )
     assert dialog == expected_dialog
-
-
-def test_generate_ask_prompt_with_fewshots():
-    builder = llm20q.agents.PromptBuilder(
-        user_chat_template="user:{prompt}\n",
-        model_chat_template="model:{prompt}\n",
-        model_chat_start="model:",
-        ask_prompt_suffix="Ask a question:",
-        ask_fewshots=[
-            "Describe ask action.User ask example 1",
-            "Model ask answer 1",
-            "User ask example 2",
-            "Model ask answer 2",
-        ],
-    )
-    questions = ["Is it an animal?", "Does it meow?"]
-    answers = ["yes", "no"]
-    expected_prompt = (
-        "user:Describe ask action.User ask example 1\n"
-        + "model:Model ask answer 1\n"
-        + "user:User ask example 2\n"
-        + "model:Model ask answer 2\n"
-        + "user:Ask a question: is an animal, does not meow\n"
-        + "model:(Is it|Does it have|Does it)"
-    )
-    prompt = builder.ask(questions, answers)
-    assert re.fullmatch(expected_prompt, prompt)
-
-
-def test_generate_ask_prompt_without_fewshots():
-    builder = llm20q.agents.PromptBuilder(
-        user_chat_template="user:{prompt}\n",
-        model_chat_template="model:{prompt}\n",
-        model_chat_start="model:",
-        ask_prompt_suffix="Ask a question:",
-    )
-    questions = ["Is it an animal?", "Does it meow?"]
-    answers = ["yes", "no"]
-    expected_prompt = (
-        "user:Ask a question: is an animal, does not meow\n"
-        + "model:(Is it|Does it have|Does it)"
-    )
-    prompt = builder.ask(questions, answers)
-    assert re.fullmatch(expected_prompt, prompt)
 
 
 def test_generate_guess_prompt_with_fewshots():

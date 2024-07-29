@@ -43,6 +43,84 @@ class Question:
     negative: str
 
 
+class QuestionSelector:
+    """Simple logic tree to select questions to determine basic info."""
+
+    def __init__(self) -> None:
+        continent = {
+            f"Is it from {x}?": None
+            for x in [
+                "Europe",
+                "Africa",
+                "North America",
+                "South America",
+                "Australia",
+                "Asia",
+            ]
+        }
+        continent["default"] = None
+        place_kind = {
+            f"Is it a {x}?": continent
+            for x in [
+                "country",
+                "city",
+                "mountain",
+                "river",
+                "lake",
+                "sea",
+                "ocean",
+            ]
+        }
+        place_kind["default"] = continent
+        thing_kind = {
+            f"Is it a {x}?": None
+            for x in ["tool", "device", "vehicle", "animal"]
+        }
+        thing_kind["default"] = None
+        domain = {
+            f"Is it used in {x}?": thing_kind
+            for x in [
+                "cooking",
+                "transport",
+                "entertainment",
+                "construction",
+                "carpentry",
+                "surgery",
+                "clothing",
+                "writing",
+                "reading",
+                "cleaning" "food",
+                "drink",
+            ]
+        }
+        domain["default"] = thing_kind
+        self._question_graph = {"Is it a place?": place_kind, "default": domain}
+
+    def select_question(self, questions: list[str], answers: list[str]) -> str:
+        current = self._question_graph
+        used = set()
+        for question, answer in zip(questions, answers):
+            if answer == "yes":
+                current = current[question]
+                used = set()
+            else:
+                used.add(question)
+                if len(used) == len(current) - 1:
+                    # All Q from this level are answered with no
+                    current = current["default"]
+                    used = set()
+            if not current:
+                break
+
+        if current:
+            used.add("default")
+            options = list(set(current.keys()) - used)
+            next_question = random.choice(options)
+            return next_question
+        else:
+            return None
+
+
 class PromptBuilder:
     """Prompt builder for 20 questions game."""
 
@@ -53,7 +131,6 @@ class PromptBuilder:
         model_chat_start: str,
         guess_prompt_prefix: str = "",
         guess_prompt_suffix: str = "",
-        ask_prompt_suffix: str = "",
         ask_fewshots: typing.Optional[list[str]] = None,
         guess_fewshots: typing.Optional[list[str]] = None,
         answer_fewshots: typing.Optional[list[str]] = None,
@@ -83,7 +160,6 @@ class PromptBuilder:
         )
         self._guess_prompt_prefix = guess_prompt_prefix
         self._guess_prompt_suffix = guess_prompt_suffix
-        self._ask_prompt_suffix = ask_prompt_suffix
 
         if not questions:
             questions = [
@@ -174,27 +250,6 @@ class PromptBuilder:
         )
         return dialog
 
-    def ask(
-        self,
-        questions: list[str],
-        answers: list[str],
-        random_seed: typing.Optional[int] = None,
-    ) -> str:
-        description = (
-            self._ask_prompt_suffix
-            + " "
-            + self.build_description(questions, answers)
-        )
-        random.seed(random_seed)
-        question_prefix = random.choice(self._questions).prefix
-        prompt = (
-            self._ask_fewshots
-            + self._user_chat_template.format(prompt=description)
-            + self._model_chat_start
-            + question_prefix
-        )
-        return prompt
-
     def guess(self, questions: list[str], answers: list[str]) -> str:
         description = self.build_description(questions, answers)
         prompt = (
@@ -244,12 +299,13 @@ class LLMAgent:
                 if token.lower() in ["yes", "no"]
             ]
         )
+        self._question_selector = QuestionSelector()
 
     @torch.no_grad()
     def answer(self, observation) -> str:
         tokenized_prompt = self._tokenizer(
             self._prompt_builder.answer(
-                observation.keyword, observation.questions[-1]
+                observation.keyword, observation.questions[-1].lower()
             ),
             return_tensors="pt",
         ).to(self._model.device)
@@ -284,16 +340,11 @@ class LLMAgent:
 
     @torch.no_grad()
     def ask(self, observation) -> str:
-        if observation.questions:
-            question = self._generate(
-                self._prompt_builder.ask(
-                    observation.questions + observation.guesses,
-                    observation.answers + ["no"] * len(observation.guesses),
-                )
-            )
-        else:
-            question = "Is it a place?"
-
+        question = self._question_selector.select_question(
+            observation.questions, observation.answers
+        )
+        if not question:
+            question = self.guess(observation)
         return question
 
     @torch.no_grad()
@@ -348,7 +399,6 @@ def load_gemma_model_and_tokenizer(
 def build_gemma_prompt_builder(
     guess_prompt_prefix: str,
     guess_prompt_suffix: str,
-    ask_prompt_suffix: str,
     ask_fewshots: typing.Optional[list[str]] = None,
     guess_fewshots: typing.Optional[list[str]] = None,
     answer_fewshots: typing.Optional[list[str]] = None,
@@ -359,7 +409,6 @@ def build_gemma_prompt_builder(
         model_chat_start="<start_of_turn>model\n",
         guess_prompt_prefix=guess_prompt_prefix,
         guess_prompt_suffix=guess_prompt_suffix,
-        ask_prompt_suffix=ask_prompt_suffix,
         ask_fewshots=ask_fewshots,
         guess_fewshots=guess_fewshots,
         answer_fewshots=answer_fewshots,
