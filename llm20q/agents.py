@@ -230,7 +230,7 @@ class LLMAgent:
         model: typing.Any,
         tokenizer: typing.Any,
         prompt_builder: PromptBuilder,
-        generation_config: transformers.GenerationConfig = transformers.GenerationConfig()
+        generation_config: transformers.GenerationConfig = transformers.GenerationConfig(),
     ) -> None:
         self._model = model
         self._tokenizer = tokenizer
@@ -267,12 +267,13 @@ class LLMAgent:
         )
         num_prompt_tokens = tokenized_prompt["input_ids"].shape[1]
         generated_tokens = self._model.generate(
-            **tokenized_prompt, max_new_tokens=max_new_tokens,
-            generation_config=self._generation_config
+            **tokenized_prompt,
+            max_new_tokens=max_new_tokens,
+            generation_config=self._generation_config,
         )[0]
 
         question = self._tokenizer.decode(
-            generated_tokens[max(0, num_prompt_tokens - 10) :]
+            generated_tokens[max(0, num_prompt_tokens - 20) :]
         )
         model_chat_start = self._prompt_builder.get_model_chat_start_pattern()
         question = question[
