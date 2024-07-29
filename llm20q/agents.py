@@ -285,7 +285,9 @@ class LLMAgent:
         model: typing.Any,
         tokenizer: typing.Any,
         prompt_builder: PromptBuilder,
-        generation_config: transformers.GenerationConfig = transformers.GenerationConfig(),
+        generation_config: typing.Optional[
+            transformers.GenerationConfig
+        ] = None,
     ) -> None:
         self._model = model
         self._tokenizer = tokenizer
