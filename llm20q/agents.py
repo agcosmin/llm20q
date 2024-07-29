@@ -131,7 +131,6 @@ class PromptBuilder:
         model_chat_start: str,
         guess_prompt_prefix: str = "",
         guess_prompt_suffix: str = "",
-        ask_fewshots: typing.Optional[list[str]] = None,
         guess_fewshots: typing.Optional[list[str]] = None,
         answer_fewshots: typing.Optional[list[str]] = None,
         questions: typing.Optional[list[str]] = None,
@@ -149,9 +148,6 @@ class PromptBuilder:
         self._user_chat_template = user_chat_template
         self._model_chat_template = model_chat_template
         self._model_chat_start = model_chat_start
-        self._ask_fewshots = (
-            self._interleave_dialog(ask_fewshots) if ask_fewshots else ""
-        )
         self._guess_fewshots = (
             self._interleave_dialog(guess_fewshots) if guess_fewshots else ""
         )
@@ -401,7 +397,6 @@ def load_gemma_model_and_tokenizer(
 def build_gemma_prompt_builder(
     guess_prompt_prefix: str,
     guess_prompt_suffix: str,
-    ask_fewshots: typing.Optional[list[str]] = None,
     guess_fewshots: typing.Optional[list[str]] = None,
     answer_fewshots: typing.Optional[list[str]] = None,
 ) -> PromptBuilder:
@@ -411,7 +406,6 @@ def build_gemma_prompt_builder(
         model_chat_start="<start_of_turn>model\n",
         guess_prompt_prefix=guess_prompt_prefix,
         guess_prompt_suffix=guess_prompt_suffix,
-        ask_fewshots=ask_fewshots,
         guess_fewshots=guess_fewshots,
         answer_fewshots=answer_fewshots,
     )
