@@ -226,7 +226,7 @@ def test_generate_guess_prompt_with_fewshots():
         + "user:Name something that is an animal, does not meow\n"
         + "model:The answer is"
     )
-    prompt = builder.guess(questions, answers, [])
+    prompt = builder.guess(questions, answers, [], only_positive=False)
     assert prompt == expected_prompt
 
 
@@ -244,8 +244,34 @@ def test_generate_guess_prompt_without_fewshots():
         "user:Name something that is an animal, does not meow\n"
         + "model:The answer is"
     )
-    prompt = builder.guess(questions, answers, [])
+    prompt = builder.guess(questions, answers, [], only_positive=False)
     assert prompt == expected_prompt
+
+
+def test_generate_guess_prompt_with_guesses():
+    builder = llm20q.agents.PromptBuilder(
+        user_chat_template="user:{prompt}\n",
+        model_chat_template="model:{prompt}\n",
+        model_chat_start="model:",
+        guess_prompt_prefix="Name something that",
+        guess_prompt_suffix="The answer is",
+    )
+    questions = ["Is it an animal?", "Does it meow?"]
+    answers = ["yes", "no"]
+    guesses = ["guess1", "guess 2"]
+    expected_prompt_pattern = (
+        "user:Name something that is an animal, does not meow and is not one of: {guesses}\n"  # pylint: disable=line-too-long
+        + "model:The answer is"
+    )
+    expected_prompt_a = expected_prompt_pattern.format(
+        guesses=f"{guesses[0]}, {guesses[1]}"
+    )
+    expected_prompt_b = expected_prompt_pattern.format(
+        guesses=f"{guesses[1]}, {guesses[0]}"
+    )
+
+    prompt = builder.guess(questions, answers, guesses, only_positive=False)
+    assert prompt == expected_prompt_a or prompt == expected_prompt_b
 
 
 @pytest.mark.parametrize(

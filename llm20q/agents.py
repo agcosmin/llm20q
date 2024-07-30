@@ -252,10 +252,14 @@ class PromptBuilder:
         return dialog
 
     def guess(
-        self, questions: list[str], answers: list[str], guesses: list[str]
+        self,
+        questions: list[str],
+        answers: list[str],
+        guesses: list[str],
+        only_positive: bool = True,
     ) -> str:
         description = self.build_description(
-            questions, answers, guesses, only_positive=True
+            questions, answers, guesses, only_positive=only_positive
         )
         prompt = (
             self._guess_fewshots
@@ -364,7 +368,10 @@ class LLMAgent:
     def guess(self, observation) -> str:
         question = self._generate(
             self._prompt_builder.guess(
-                observation.questions, observation.answers, observation.guesses
+                observation.questions,
+                observation.answers,
+                observation.guesses,
+                only_positive=True,
             )
         )
         question = self._prompt_builder.clean_question(question)
