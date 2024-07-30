@@ -3,7 +3,6 @@
 https://www.kaggle.com/competitions/llm-20-questions
 """
 
-import enum
 import dataclasses
 import os
 import sys
@@ -26,14 +25,11 @@ elif os.path.exists(KAGGLE_SUBMISSION_LIB_PATH):
 else:
     MODEL_ROOT = "../gemma/models/transformers"
 
-session_agent = None
-session_model = None
-session_tokenizer = None
-
-
-class Role(enum.Enum):
-    guesser = "guesser"
-    answerer = "answerer"
+session_agents = {}
+session_models = {}
+session_tokenizers = {}
+session_bad_words_ids = {}
+session_prompt_builders = {}
 
 
 @dataclasses.dataclass
@@ -89,7 +85,8 @@ class QuestionSelector:
                 "clothing",
                 "writing",
                 "reading",
-                "cleaning" "food",
+                "cleaning",
+                "food",
                 "drink",
             ]
         }
@@ -272,6 +269,9 @@ class PromptBuilder:
 
     def answer(self, keyword: str, question: str) -> str:
         question = self.clean_question(question)
+        keywords = keyword.split(" ")
+        random.shuffle(keywords)
+        keyword = " ".join(keywords)
         question = re.sub(
             rf"\W({'|'.join(self._it_words)})\W",
             " " + keyword + " ",
@@ -279,7 +279,7 @@ class PromptBuilder:
             flags=re.IGNORECASE,
         )
         prompt = (
-            self._user_chat_template.format(prompt="Yes or no." + question)
+            self._user_chat_template.format(prompt="yes or no: " + question)
             + self._model_chat_start
         )
         return prompt
@@ -372,6 +372,9 @@ class LLMAgent:
         guessed_word = question[
             question.rfind(guess_suffix) + len(guess_suffix) : -1
         ].strip()
+        if len(guessed_word) == 0:
+            # must guess something otherwise the game errors out
+            guessed_word = "dog"
 
         return guessed_word
 
@@ -439,27 +442,101 @@ def build_gemma_agent(
     )
 
 
-def agent_fn(observation, *args, **kwargs):  # pylint: disable=unused-argument
-    global session_agent, session_model, session_tokenizer
-    if session_agent is None:
-        variant = "7b-it"
-        version = 3
-        quantized = False
-        device = torch.device("cpu")
-        session_model, session_tokenizer = load_gemma_model_and_tokenizer(
-            os.path.join(MODEL_ROOT, variant, str(version)),
-            device=device,
-            quantized=quantized,
-        )
-        session_agent = LLMAgent(
-            model=session_model,
-            tokenizer=session_tokenizer,
-            prompt_builder=build_gemma_prompt_builder(
-                "Guess what I am thinking about. I am thinking about something that",  # pylint: disable=line-too-long
-                "The answer is",
-                "Ask a question about my secret that",
-            ),
+def get_bad_tokens(words: list[str], tokenizer) -> list[list[int]]:
+    bad_words_raw = [
+        [token_id]
+        for token, token_id in tokenizer.vocab.items()
+        if any(word.lower() in token.lower() for word in words)
+    ]
+    bad_words_tokenized = [
+        tokenizer([" " + word], add_special_tokens=False).input_ids[0]
+        for word in words
+    ]
+    bad_words = bad_words_raw + [
+        tokens for tokens in bad_words_tokenized if tokens not in bad_words_raw
+    ]
+    return bad_words
+
+
+def agent_fn(observation, *args, **kwargs) -> str:  # pylint: disable=unused-argument
+    # global session_agents, session_models, session_tokenizers # pylint: disable=global-variable-not-assigned
+
+    agent_id = kwargs.get("llm20q_agent_id", "default")
+
+    agent = session_agents.get(agent_id, None)
+    if agent is None:
+        model_id = kwargs.get("llm20q_model_id", "default")
+        model = session_models.get(model_id, None)
+        tokenizer = session_tokenizers.get(model_id, None)
+        prompt_builder = session_prompt_builders.get(model_id, None)
+        generation_config = None
+        if model is None or tokenizer is None:
+            if model_id == "default":
+                variant = "7b-it"
+                version = 3
+                quantized = kwargs.get("llm20q_use_quantized_model", False)
+                device = kwargs.get("llm20q_device", torch.device("cpu"))
+                checkpoint_path = os.path.join(
+                    MODEL_ROOT, variant, str(version)
+                )
+                model, tokenizer = load_gemma_model_and_tokenizer(
+                    checkpoint_path,
+                    device=device,
+                    quantized=quantized,
+                )
+                session_models[model_id] = model
+                session_tokenizers[model_id] = tokenizer
+                prompt_builder = build_gemma_prompt_builder(
+                    "Name something that", "The answer is"
+                )
+
+                generation_config = (
+                    transformers.GenerationConfig.from_pretrained(
+                        checkpoint_path,
+                        num_beams=2,
+                        do_sample=True,
+                        temperature=5.0,
+                    )
+                )
+            else:
+                raise ValueError(f"Unknown model id: {model_id}")
+
+        generation_config_args = kwargs.get("llm20q_generation_config_args", {})
+        bad_words = kwargs.get(
+            "llm20q_bad_words",
+            [
+                "none",
+                "nothing",
+                "somewhere",
+                "anywhere",
+                "here",
+                "there",
+                "word",
+                "hypothetical",
+                "mythical",
+                "fiction",
+                "name",
+                "the",
+            ],
         )
 
-    response = session_agent(observation)
+        if bad_words:
+            generation_config_args["bad_words_ids"] = get_bad_tokens(
+                bad_words, tokenizer
+            )
+        if not generation_config:
+            generation_config = transformers.GenerationConfig.from_model_config(
+                model.config
+            )
+        generation_config.update(**generation_config_args)
+
+        agent = LLMAgent(
+            model=model,
+            tokenizer=tokenizer,
+            prompt_builder=prompt_builder,
+            generation_config=generation_config,
+        )
+        session_agents[agent_id] = agent
+
+    response = agent(observation)
     return response

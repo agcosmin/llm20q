@@ -38,6 +38,7 @@ dependencies = [
 name = "llm20q"
 
 [project.scripts]
+play20q = "llm20q.play:play"
 
 [project.optional-dependencies]
 dev = [
