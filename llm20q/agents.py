@@ -200,7 +200,11 @@ class PromptBuilder:
         return self._guess_prompt_suffix
 
     def build_description(
-        self, questions: list[str], answers: list[str]
+        self,
+        questions: list[str],
+        answers: list[str],
+        guesses: list[str],
+        only_positive: bool = False,
     ) -> str:
         if len(questions) != len(answers):
             raise ValueError(
@@ -210,7 +214,8 @@ class PromptBuilder:
         sep = ""
         for question, answer in zip(questions, answers):
             answer = self.clean_answer(answer)
-            if answer not in ["yes", "no"]:
+            use_answers = ["yes"] + ([] if only_positive else ["no"])
+            if answer not in use_answers:
                 continue
             question = self.clean_question(question)
             q_index = None
@@ -228,6 +233,9 @@ class PromptBuilder:
             description += sep + verb + suffix
             sep = ", "
 
+        guesses = set(guess.lower() for guess in guesses)
+        if guesses:
+            description += " and is not one of: " + ", ".join(guesses)
         return description
 
     def _interleave_dialog(
@@ -246,8 +254,12 @@ class PromptBuilder:
         )
         return dialog
 
-    def guess(self, questions: list[str], answers: list[str]) -> str:
-        description = self.build_description(questions, answers)
+    def guess(
+        self, questions: list[str], answers: list[str], guesses: list[str]
+    ) -> str:
+        description = self.build_description(
+            questions, answers, guesses, only_positive=True
+        )
         prompt = (
             self._guess_fewshots
             + self._user_chat_template.format(
@@ -315,7 +327,7 @@ class LLMAgent:
         return answer
 
     @torch.no_grad()
-    def _generate(self, prompt: str, max_new_tokens: int = 3) -> str:
+    def _generate(self, prompt: str, max_new_tokens: int = 2) -> str:
         tokenized_prompt = self._tokenizer(prompt, return_tensors="pt").to(
             self._model.device
         )
@@ -342,25 +354,26 @@ class LLMAgent:
             observation.questions, observation.answers
         )
         if not question:
-            question = self.guess(observation)
+            guessed_word = self.guess(observation)
+            question = self._prompt_builder.clean_question(
+                f"Is it {guessed_word}?"
+            )
         return question
 
     @torch.no_grad()
     def guess(self, observation) -> str:
         question = self._generate(
             self._prompt_builder.guess(
-                observation.questions + observation.guesses,
-                observation.answers + ["no"] * len(observation.guesses),
+                observation.questions, observation.answers, observation.guesses
             )
         )
+        question = self._prompt_builder.clean_question(question)
         guess_suffix = self._prompt_builder.get_guess_prompt_suffix()
         guessed_word = question[
-            question.rfind(guess_suffix) + len(guess_suffix) :
-        ]
-        question = self._prompt_builder.clean_question(
-            "Is it" + guessed_word + "?"
-        )
-        return question
+            question.rfind(guess_suffix) + len(guess_suffix) : -1
+        ].strip()
+
+        return guessed_word
 
     def __call__(self, observation, *args) -> str:
         if observation.turnType == "ask":

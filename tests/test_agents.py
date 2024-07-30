@@ -26,7 +26,7 @@ def test_build_description_with_no_questions_and_answers_results_in_empty_str():
         model_chat_template="model:{prompt}\n",
         model_chat_start="model:",
     )
-    assert builder.build_description([], []) == ""
+    assert builder.build_description([], [], []) == ""
 
 
 def test_build_desc_raises_for_mismatched_question_and_answers_length():
@@ -36,9 +36,9 @@ def test_build_desc_raises_for_mismatched_question_and_answers_length():
         model_chat_start="model:",
     )
     with pytest.raises(ValueError):
-        builder.build_description(["Is it a cow"], [])
+        builder.build_description(["Is it a cow"], [], [])
     with pytest.raises(ValueError):
-        builder.build_description([], ["Yes", "no"])
+        builder.build_description([], ["Yes", "no"], [])
 
 
 def test_build_description_with_invalid_question_raises_ex():
@@ -48,7 +48,7 @@ def test_build_description_with_invalid_question_raises_ex():
         model_chat_start="model:",
     )
     with pytest.raises(ValueError):
-        builder.build_description(["How many coins?"], ["yes"])
+        builder.build_description(["How many coins?"], ["yes"], [])
 
 
 def test_build_description_give_exepcted_results_for_all_question_types():
@@ -65,8 +65,8 @@ def test_build_description_give_exepcted_results_for_all_question_types():
 
     for prefix, suffix, affirmative, negative in samples:
         question = prefix + " " + suffix
-        assert builder.build_description([question], ["yes"]) == affirmative
-        assert builder.build_description([question], ["no"]) == negative
+        assert builder.build_description([question], ["yes"], []) == affirmative
+        assert builder.build_description([question], ["no"], []) == negative
 
 
 def test_build_description_from_question_with_invalid_chars():
@@ -76,8 +76,13 @@ def test_build_description_from_question_with_invalid_chars():
         model_chat_start="model:",
     )
     question = ["Is it a*(big     *country?**?---?"]
-    assert builder.build_description(question, ["yes"]) == "is a big country"
-    assert builder.build_description(question, ["no"]) == "is not a big country"
+    assert (
+        builder.build_description(question, ["yes"], []) == "is a big country"
+    )
+    assert (
+        builder.build_description(question, ["no"], [])
+        == "is not a big country"
+    )
 
 
 def test_build_chained_description():
@@ -89,8 +94,28 @@ def test_build_chained_description():
     desc = builder.build_description(
         ["Is it an animal?", "Does it bark?", "Does it have a tail?"],
         ["yes", "no", "yes"],
+        [],
     )
     assert desc == "is an animal, does not bark, does have a tail"
+
+
+def test_build_chained_description_with_guesses():
+    builder = llm20q.agents.PromptBuilder(
+        user_chat_template="user:{prompt}\n",
+        model_chat_template="model:{prompt}\n",
+        model_chat_start="model:",
+    )
+    guesses = ["guess1", "guess 2", "last guess"]
+    desc = builder.build_description(
+        ["Is it an animal?", "Does it bark?", "Does it have a tail?"],
+        ["yes", "no", "yes"],
+        guesses,
+    )
+    expected_prefix = (
+        "is an animal, does not bark, does have a tail and is not one of: "
+    )
+    assert desc[0 : len(expected_prefix)] == expected_prefix
+    assert set(desc[len(expected_prefix) :].split(", ")) == set(guesses)
 
 
 def test_build_description_with_non_yes_or_no_answer():
@@ -99,9 +124,11 @@ def test_build_description_with_non_yes_or_no_answer():
         model_chat_template="model:{prompt}\n",
         model_chat_start="model:",
     )
-    assert builder.build_description(["Is it an animal?"], ["yes no"]) == ""
+    assert builder.build_description(["Is it an animal?"], ["yes no"], []) == ""
     one_bad_one_good_answer_prompt = builder.build_description(
-        ["Is it an animal?", "Does it bark?"], ["something someting***", "yes"]
+        ["Is it an animal?", "Does it bark?"],
+        ["something someting***", "yes"],
+        [],
     )
     assert one_bad_one_good_answer_prompt == "does bark"
 
@@ -115,7 +142,9 @@ def test_build_description_with_non_standard_yes_answer(answer):
         model_chat_template="model:{prompt}\n",
         model_chat_start="model:",
     )
-    assert builder.build_description(["Is it a dog?"], [answer]) == "is a dog"
+    assert (
+        builder.build_description(["Is it a dog?"], [answer], []) == "is a dog"
+    )
 
 
 @pytest.mark.parametrize("answer", ["No", "nO", "* NO", "   NO  ()?", "n-o"])
@@ -126,7 +155,8 @@ def test_build_description_with_non_standard_no_answer(answer):
         model_chat_start="model:",
     )
     assert (
-        builder.build_description(["Is it a dog?"], [answer]) == "is not a dog"
+        builder.build_description(["Is it a dog?"], [answer], [])
+        == "is not a dog"
     )
 
 
@@ -196,7 +226,7 @@ def test_generate_guess_prompt_with_fewshots():
         + "user:Name something that is an animal, does not meow\n"
         + "model:The answer is"
     )
-    prompt = builder.guess(questions, answers)
+    prompt = builder.guess(questions, answers, [])
     assert prompt == expected_prompt
 
 
@@ -214,7 +244,7 @@ def test_generate_guess_prompt_without_fewshots():
         "user:Name something that is an animal, does not meow\n"
         + "model:The answer is"
     )
-    prompt = builder.guess(questions, answers)
+    prompt = builder.guess(questions, answers, [])
     assert prompt == expected_prompt
 
 
