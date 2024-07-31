@@ -5,6 +5,7 @@ https://www.kaggle.com/competitions/llm-20-questions
 
 import dataclasses
 import os
+import os.path
 import sys
 import typing
 import re
@@ -13,17 +14,12 @@ import random
 import torch
 import transformers
 
-KAGGLE_SIMULATION_LIB_PATH = "/kaggle_simulations/agent/lib"
-KAGGLE_SUBMISSION_LIB_PATH = "/kaggle/working/submission/lib"
-
-if os.path.exists(KAGGLE_SIMULATION_LIB_PATH):
-    sys.path.insert(0, KAGGLE_SIMULATION_LIB_PATH)
-    MODEL_ROOT = "/kaggle/input/gemma/transformers"
-elif os.path.exists(KAGGLE_SUBMISSION_LIB_PATH):
-    sys.path.insert(0, KAGGLE_SUBMISSION_LIB_PATH)
-    MODEL_ROOT = "/kaggle_simulations/agent/gemma/transformers"
+KAGGLE_SIMULATION_AGENT_PATH = "/kaggle_simulations/agent/"
+if os.path.exists(KAGGLE_SIMULATION_AGENT_PATH):
+    sys.path.insert(0, os.path.join(KAGGLE_SIMULATION_AGENT_PATH, "lib"))
+    MODEL_ROOT = os.path.join(KAGGLE_SIMULATION_AGENT_PATH, "transformers")
 else:
-    MODEL_ROOT = "../gemma/models/transformers"
+    MODEL_ROOT = "./gemma/models/transformers"
 
 session_agents = {}
 session_models = {}
@@ -466,10 +462,7 @@ def get_bad_tokens(words: list[str], tokenizer) -> list[list[int]]:
 
 
 def agent_fn(observation, *args, **kwargs) -> str:  # pylint: disable=unused-argument
-    # global session_agents, session_models, session_tokenizers # pylint: disable=global-variable-not-assigned
-
     agent_id = kwargs.get("llm20q_agent_id", "default")
-
     agent = session_agents.get(agent_id, None)
     if agent is None:
         model_id = kwargs.get("llm20q_model_id", "default")
@@ -479,7 +472,7 @@ def agent_fn(observation, *args, **kwargs) -> str:  # pylint: disable=unused-arg
         generation_config = None
         if model is None or tokenizer is None:
             if model_id == "default":
-                variant = "7b-it"
+                variant = "2b-it"
                 version = 3
                 quantized = kwargs.get("llm20q_use_quantized_model", False)
                 device = kwargs.get("llm20q_device", torch.device("cpu"))
