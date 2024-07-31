@@ -39,20 +39,8 @@ class QuestionSelector:
     """Simple logic tree to select questions to determine basic info."""
 
     def __init__(self) -> None:
-        alphabet = "abcdefghijklmnopqrstuvwxyz"
-        group_size = 6
-        start_letter_question = "Does it start with any of these letters: {g}?"
-        start_letter = {
-            start_letter_question.format(
-                g=",".join(
-                    list(alphabet[i : min(i + group_size, len(alphabet))])
-                )
-            ): None
-            for i in range(0, len(alphabet), group_size)
-        }
-        start_letter["default"] = None
         continent = {
-            f"Is it from {x}?": start_letter
+            f"Is it from {x}?": None
             for x in [
                 "Europe",
                 "Africa",
@@ -62,7 +50,7 @@ class QuestionSelector:
                 "Asia",
             ]
         }
-        continent["default"] = start_letter
+        continent["default"] = None
         place_kind = {
             f"Is it a {x}?": continent
             for x in [
@@ -77,25 +65,25 @@ class QuestionSelector:
         }
         place_kind["default"] = continent
         thing_kind = {
-            f"Is it a {x}?": start_letter
-            for x in ["tool", "device", "vehicle", "animal"]
+            f"Is it a {x}?": None
+            for x in [
+                "device",
+                "vehicle",
+                "animal",
+                "plant",
+                "food",
+                "drink",
+                "clothing",
+            ]
         }
-        thing_kind["default"] = start_letter
+        thing_kind["default"] = None
         domain = {
             f"Is it used in {x}?": thing_kind
             for x in [
-                "cooking",
-                "transport",
                 "entertainment",
                 "construction",
-                "carpentry",
-                "surgery",
-                "clothing",
                 "writing",
                 "reading",
-                "cleaning",
-                "food",
-                "drink",
             ]
         }
         domain["default"] = thing_kind
@@ -111,7 +99,7 @@ class QuestionSelector:
             else:
                 used.add(question)
                 if len(used) == len(current) - 1:
-                    # All Q from this level are answered with no
+                    # All questions from this level are answered with no
                     current = current["default"]
                     used = set()
             if not current:
@@ -406,10 +394,6 @@ class LLMAgent:
             # Return default guess
             guessed_words = ["dog"]
 
-        # Add guess words to bad list to avoid generating them again
-        self._generation_config.bad_words_ids.extend(
-                get_bad_tokens(guessed_words, self._tokenizer))
-
         return " ".join(guessed_words)
 
     def __call__(self, observation, *args) -> str:
@@ -476,20 +460,13 @@ def build_gemma_agent(
     )
 
 
-def get_bad_tokens(words: list[str], tokenizer) -> list[list[int]]:
-    bad_words_raw = [
-        [token_id]
+def get_suppress_tokens(words: list[str], tokenizer) -> list[list[int]]:
+    suppress_tokens = [
+        token_id
         for token, token_id in tokenizer.vocab.items()
         if any(word.lower() in token.lower() for word in words)
     ]
-    bad_words_tokenized = [
-        tokenizer([" " + word], add_special_tokens=False).input_ids[0]
-        for word in words
-    ]
-    bad_words = bad_words_raw + [
-        tokens for tokens in bad_words_tokenized if tokens not in bad_words_raw
-    ]
-    return bad_words
+    return suppress_tokens
 
 
 def agent_fn(observation, *args, **kwargs) -> str:  # pylint: disable=unused-argument
@@ -520,6 +497,7 @@ def agent_fn(observation, *args, **kwargs) -> str:  # pylint: disable=unused-arg
                 prompt_builder = build_gemma_prompt_builder(
                     "Name something that", "The answer is"
                 )
+                session_prompt_builders[model_id] = prompt_builder
 
                 generation_config = (
                     transformers.GenerationConfig.from_pretrained(
@@ -564,11 +542,34 @@ def agent_fn(observation, *args, **kwargs) -> str:  # pylint: disable=unused-arg
                 "location",
                 "something",
                 "anything",
+                "area",
+                "sure",
+                "geography",
+                "geographical",
+                "time",
+                ":",
+                ",",
+                "*",
+                "~",
+                "@",
+                "#",
+                "$",
+                "%",
+                "^",
+                "&",
+                "(",
+                ")",
+                "+",
+                "=",
+                "[",
+                "]",
+                "`",
+                "_",
             ],
         )
 
         if bad_words:
-            generation_config_args["bad_words_ids"] = get_bad_tokens(
+            generation_config_args["suppress_tokens"] = get_suppress_tokens(
                 bad_words, tokenizer
             )
         if not generation_config:

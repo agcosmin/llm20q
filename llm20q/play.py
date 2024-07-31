@@ -51,10 +51,24 @@ class Agent:
 
 def play(debug: bool = False):
     env = kaggle_env.make("llm_20_questions", debug=debug)
-    guesser_1 = Agent(quantized_model=True, device=torch.device("cuda"))
+    guesser_1 = Agent(
+        agent_id="beam3",
+        quantized_model=True,
+        device=torch.device("cuda"),
+        num_beams=3,
+        do_sample=True,
+        temperature=100.5,
+    )
+    guesser_2 = Agent(
+        agent_id="beam2",
+        quantized_model=True,
+        device=torch.device("cuda"),
+        num_beams=2,
+        do_sample=True,
+        temperature=10.5,
+    )
     answerer_1 = guesser_1
-    guesser_2 = guesser_1
-    answerer_2 = answerer_1
+    answerer_2 = guesser_2
     env.run([guesser_1, answerer_1, guesser_2, answerer_2])
     print("----------------------------------------")
     print(env.render(mode="ansi"))
