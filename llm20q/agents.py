@@ -40,7 +40,7 @@ class QuestionSelector:
 
     def __init__(self) -> None:
         alphabet = "abcdefghijklmnopqrstuvwxyz"
-        group_size = 4
+        group_size = 6
         start_letter_question = (
             "Does it's name start with one of these letters: {g}?"
         )
