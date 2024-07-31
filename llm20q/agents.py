@@ -293,7 +293,10 @@ class PromptBuilder:
             flags=re.IGNORECASE,
         )
         prompt = (
-            self._user_chat_template.format(prompt="yes or no: " + question)
+            self._user_chat_template.format(
+                prompt="Answer the next question with no or yes only: "
+                + question
+            )
             + self._model_chat_start
         )
         return prompt
