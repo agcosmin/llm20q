@@ -294,7 +294,7 @@ def test_generate_answer_prompt(question, it_word):
     keyword = "dog"
     prompt = builder.answer(keyword, question.format(it_word=it_word))
     expected_prompt = (
-        f"user:yes or no: {question.format(it_word=keyword)}\nmodel:"
+        f"user:Answer the next question with no or yes only: {question.format(it_word=keyword)}\nmodel:"
     )
     assert expected_prompt == prompt
 
@@ -308,5 +308,5 @@ def test_generate_answer_prompt_with_dirty_question():
     keyword = "dog"
     question = "Does+the,+ it+, have a hat???"
     prompt = builder.answer(keyword, question)
-    expected_prompt = "user:yes or no: Does the dog have a hat?\nmodel:"
+    expected_prompt = "user:Answer the next question with no or yes only: Does the dog have a hat?\nmodel:"
     assert expected_prompt == prompt
