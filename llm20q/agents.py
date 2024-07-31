@@ -392,17 +392,25 @@ class LLMAgent:
             question.rfind(guess_suffix) + len(guess_suffix) : -1
         ].strip()
 
-        clean_guessed_words = ""
-        for word in guessed_words.lower().split(" "):
-            if len(word) > 3 and word not in clean_guessed_words:
-                clean_guessed_words += word + " "
-        clean_guessed_words = clean_guessed_words[0:-1]
+        guessed_words = [
+            w for w in guessed_words.lower().split(" ") if len(w) > 3
+        ]
+        if guessed_words:
+            kept_words = [guessed_words[0]]
+            for word in guessed_words[1:]:
+                if not any(kept in word or word in kept for kept in kept_words):
+                    kept_words.append(word)
+            guessed_words = kept_words
+        else:
+            # Generation did not give any good words.
+            # Return default guess
+            guessed_words = ["dog"]
 
-        if len(clean_guessed_words) == 0:
-            # must guess something otherwise the game errors out
-            clean_guessed_words = "dog"
+        # Add guess words to bad list to avoid generating them again
+        self._generation_config.bad_words_ids.extend(
+                get_bad_tokens(guessed_words, self._tokenizer))
 
-        return clean_guessed_words
+        return " ".join(guessed_words)
 
     def __call__(self, observation, *args) -> str:
         if observation.turnType == "ask":
