@@ -17,5 +17,5 @@ submission:
 		-cf submission.tar.gz \
 		--transform "s|agents.py|main.py|" \
 		-C ./llm20q/ agents.py \
-		-C ../../gemma/models/ transformers/2b-it/3
+		-C ../gemma/models/ transformers/2b-it/3
 
