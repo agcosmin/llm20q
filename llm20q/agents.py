@@ -39,8 +39,22 @@ class QuestionSelector:
     """Simple logic tree to select questions to determine basic info."""
 
     def __init__(self) -> None:
+        alphabet = "abcdefghijklmnopqrstuvwxyz"
+        group_size = 4
+        start_letter_question = (
+            "Does it's name start with one of these letters: {g}?"
+        )
+        start_letter = {
+            start_letter_question.format(
+                g=",".join(
+                    list(alphabet[i : min(i + group_size, len(alphabet))])
+                )
+            ): None
+            for i in range(0, len(alphabet), group_size)
+        }
+        start_letter["default"] = None
         continent = {
-            f"Is it from {x}?": None
+            f"Is it from {x}?": start_letter
             for x in [
                 "Europe",
                 "Africa",
@@ -50,7 +64,7 @@ class QuestionSelector:
                 "Asia",
             ]
         }
-        continent["default"] = None
+        continent["default"] = start_letter
         place_kind = {
             f"Is it a {x}?": continent
             for x in [
@@ -65,10 +79,10 @@ class QuestionSelector:
         }
         place_kind["default"] = continent
         thing_kind = {
-            f"Is it a {x}?": None
+            f"Is it a {x}?": start_letter
             for x in ["tool", "device", "vehicle", "animal"]
         }
-        thing_kind["default"] = None
+        thing_kind["default"] = start_letter
         domain = {
             f"Is it used in {x}?": thing_kind
             for x in [
@@ -269,7 +283,7 @@ class PromptBuilder:
 
     def answer(self, keyword: str, question: str) -> str:
         question = self.clean_question(question)
-        keywords = keyword.split(" ")
+        keywords = keyword.lower().split(" ")
         random.shuffle(keywords)
         keyword = " ".join(keywords)
         question = re.sub(
