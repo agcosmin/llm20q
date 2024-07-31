@@ -385,18 +385,26 @@ class LLMAgent:
                 observation.answers,
                 observation.guesses,
                 only_positive=True,
-            )
+            ),
+            max_new_tokens=5,
         )
         question = self._prompt_builder.clean_question(question)
         guess_suffix = self._prompt_builder.get_guess_prompt_suffix()
-        guessed_word = question[
+        guessed_words = question[
             question.rfind(guess_suffix) + len(guess_suffix) : -1
         ].strip()
-        if len(guessed_word) == 0:
-            # must guess something otherwise the game errors out
-            guessed_word = "dog"
 
-        return guessed_word
+        clean_guessed_words = ""
+        for word in guessed_words.lower().split(" "):
+            if len(word) > 3 and word not in clean_guessed_words:
+                clean_guessed_words += word + " "
+        clean_guessed_words = clean_guessed_words[0:-1]
+
+        if len(clean_guessed_words) == 0:
+            # must guess something otherwise the game errors out
+            clean_guessed_words = "dog"
+
+        return clean_guessed_words
 
     def __call__(self, observation, *args) -> str:
         if observation.turnType == "ask":
